@@ -14,7 +14,7 @@ pipeline {
         DOCKER_REGISTRY = 'https://registry.hub.docker.com'
         GITLAB_API_URL = 'https://gitlab.com/api/v4'
         GITLAB_TOKEN = credentials('gitlab-credentials')
-        EMAIL_RECIPIENT = 'danielbit114@gmail.com'
+        EMAIL_RECIPIENT = credentials('email-recipient')
         HELM_CHART_DIR = 'helm-reactapp'
         HELM_CHART_VERSION = '0.1.0'
     }
@@ -108,21 +108,23 @@ pipeline {
 
     post {
         failure {
-            emailext(
+            emailext (
                 subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
                 body: """
                     Pipeline failure in ${env.JOB_NAME}
                     Build Number: ${env.BUILD_NUMBER}
                     Build URL: ${env.BUILD_URL}
                 """,
-                to: EMAIL_RECIPIENT
+                recipientProviders: [[$class: 'DevelopersRecipientProvider']],
+                to: "${env.EMAIL_RECIPIENT}"
             )
         }
         success {
             echo "Pipeline completed successfully!"
         }
         always {
-            cleanWs()
+            // Replace cleanWs with deleteDir
+            deleteDir()
         }
     }
 }
