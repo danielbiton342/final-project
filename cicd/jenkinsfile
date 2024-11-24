@@ -1,0 +1,128 @@
+pipeline {
+    agent {
+        kubernetes {
+            label 'reactapp-agent'
+            idleMinutes 5
+            yamlFile 'jenkins-agent.yaml'
+            defaultContainer 'ez-docker-helm-build'
+        }            
+    }
+
+    environment {
+        BACKEND_IMAGE = 'danbit2024/backend-app'
+        FRONTEND_IMAGE = 'danbit2024/frontend-app'
+        DOCKER_REGISTRY = 'https://registry.hub.docker.com'
+        GITLAB_API_URL = 'https://gitlab.com/api/v4'
+        GITLAB_TOKEN = credentials('gitlab-credentials')
+        EMAIL_RECIPIENT = 'danielbit114@gmail.com'
+        HELM_CHART_DIR = 'helm-reactapp'
+        HELM_CHART_VERSION = '0.1.0'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/1-building-application']],
+                    userRemoteConfigs: [[url: 'https://gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git']]
+                ])
+            }
+        }
+
+        stage('Backend Tests & Build') {
+            steps {
+                dir('backend') {
+                    script {
+                        // Run Python tests
+                        sh 'cd backend && python -m pytest test_app.py'
+
+                        // Build backend Docker image
+                        def backendImage = docker.build("${BACKEND_IMAGE}:${BUILD_NUMBER}", "--no-cache .")
+                        
+                        
+                        if (env.BRANCH_NAME == '1-building-application') {
+                            docker.withRegistry(DOCKER_REGISTRY, 'docker-creds') {
+                                backendImage.push()
+                                backendImage.push('v1')
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Frontend Tests & Build') {
+            steps {
+                dir('frontend') {
+                    script {
+                        // Install dependencies and run tests
+                        sh 'npm install'           
+                        // Build React application
+                        sh 'npm run build'
+
+                        // Build frontend Docker image
+                        def frontendImage = docker.build("${FRONTEND_IMAGE}:${BUILD_NUMBER}", "--no-cache .")
+                        
+                        // Tag and push if on main branch
+                        if (env.BRANCH_NAME == '1-building-application') {
+                            docker.withRegistry(DOCKER_REGISTRY, 'docker-creds') {
+                                frontendImage.push()
+                                frontendImage.push('v1')
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Helm Chart Processing') {
+            when {
+                branch '1-building-application'
+            }
+            steps {
+                dir(HELM_CHART_DIR) {
+                    script {
+                        // Update chart version and app version
+                        sh """
+                            yq eval '.version = "${HELM_CHART_VERSION}"' -i Chart.yaml
+                            yq eval '.appVersion = "${BUILD_NUMBER}"' -i Chart.yaml
+                            
+                            # Update image tags in values.yaml
+                            yq eval '.backend.image.tag = "${BUILD_NUMBER}"' -i values.yaml
+                            yq eval '.frontend.image.tag = "${BUILD_NUMBER}"' -i values.yaml
+                        """
+
+                        // Package helm chart
+                        sh "helm package ."
+                        
+                        // Optional: Push to chart repository (example using OCI registry)
+                        sh """
+                            helm push \$(ls *.tgz) oci://registry-1.docker.io/danbit2024
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        failure {
+            emailext(
+                subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
+                body: """
+                    Pipeline failure in ${env.JOB_NAME}
+                    Build Number: ${env.BUILD_NUMBER}
+                    Build URL: ${env.BUILD_URL}
+                """,
+                to: EMAIL_RECIPIENT
+            )
+        }
+        success {
+            echo "Pipeline completed successfully!"
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

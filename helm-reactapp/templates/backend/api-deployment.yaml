@@ -23,6 +23,6 @@ spec:
                   key: MONGO_URI
           ports:
             - name: api-port
-              containerPort: 5000      
+              containerPort: 5000 
 
                   
