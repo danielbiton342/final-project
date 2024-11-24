@@ -106,25 +106,25 @@ pipeline {
         }
     }
 
-    post {
-        failure {
-            emailext (
-                subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
-                body: """
-                    Pipeline failure in ${env.JOB_NAME}
-                    Build Number: ${env.BUILD_NUMBER}
-                    Build URL: ${env.BUILD_URL}
-                """,
-                recipientProviders: [[$class: 'DevelopersRecipientProvider']],
-                to: "${env.EMAIL_RECIPIENT}"
-            )
-        }
-        success {
-            echo "Pipeline completed successfully!"
-        }
-        always {
-            // Replace cleanWs with deleteDir
-            deleteDir()
-        }
-    }
+//    post {
+//        failure {
+//            emailext (
+//                subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
+//                body: """
+//                    Pipeline failure in ${env.JOB_NAME}
+//                    Build Number: ${env.BUILD_NUMBER}
+//                    Build URL: ${env.BUILD_URL}
+//                """,
+//                recipientProviders: [[$class: 'DevelopersRecipientProvider']],
+//                to: "${env.EMAIL_RECIPIENT}"
+//            )
+//        }
+//        success {
+//            echo "Pipeline completed successfully!"
+//        }
+//        always {
+//            // Replace cleanWs with deleteDir
+//            deleteDir()
+//        }
+//    }
 }
