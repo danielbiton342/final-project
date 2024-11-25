@@ -6,19 +6,14 @@ metadata:
     app: reactapp-agent
 spec:
   containers:
-    - name: ez-docker-helm-build
-      image: ezezeasy/ez-docker-helm-build:1.41
+    - name: dind
+      image: drpsychick/dind-buildx-helm
       imagePullPolicy: Always
       securityContext:
         privileged: true
       volumeMounts:
-        - name: docker-socket
-          mountPath: /var/run/docker.sock
-      env:
-        - name: DOCKER_HOST
-          value: unix:///var/run/docker.sock
-        - name: DOCKER_CONFIG
-          value: /home/jenkins/.docker
+        - mountPath: /var/run
+          name: docker-sock
 
     - name: nodejs
       image: node:16
@@ -40,21 +35,6 @@ spec:
       securityContext:
         privileged: false
       volumeMounts:
-        - name: workspace-volume
-          mountPath: /home/jenkins/agent
-
-    - name: docker
-      image: docker:latest
-      command:
-        - sleep
-      args:
-        - infinity
-      imagePullPolicy: Always
-      securityContext:
-        privileged: true
-      volumeMounts:
-        - name: docker-socket
-          mountPath: /var/run/docker.sock
         - name: workspace-volume
           mountPath: /home/jenkins/agent
 

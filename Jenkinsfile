@@ -4,7 +4,7 @@ pipeline {
             label 'reactapp-agent'
             idleMinutes 5
             yamlFile 'jenkins-agent.yaml'
-            defaultContainer 'ez-docker-helm-build'
+            defaultContainer 'dind'
         }            
     }
 
@@ -32,19 +32,31 @@ pipeline {
 
         stage('Backend Tests & Build') {
             steps {
-                dir('backend') {
-                    script {
-                        // Run Python tests
-                        sh 'cd backend && python -m pytest test_app.py'
+                // Use the python-test container to run tests
+                container('python-test') {
+                    dir('backend') {
+                        script {
+                            // Run Python tests
+                            sh 'pip install pylint'
+                            sh 'pylint app.py'
+                            sh 'python -m pytest test_app.py'
+                        }
+                    }
+                }
 
-                        // Build backend Docker image
-                        def backendImage = docker.build("${BACKEND_IMAGE}:${BUILD_NUMBER}", "--no-cache .")
-                        
-                        
-                        if (env.BRANCH_NAME == '1-building-application') {
-                            docker.withRegistry(DOCKER_REGISTRY, 'docker-creds') {
-                                backendImage.push()
-                                backendImage.push('v1')
+                // Use the dind container for Docker build and push
+                container('dind') {
+                    dir('backend') {
+                        script {
+                            // Build backend Docker image
+                            def backendImage = docker.build("${BACKEND_IMAGE}:${BUILD_NUMBER}", "--no-cache .")
+                            
+                            // Push image if on the specific branch
+                            if (env.BRANCH_NAME == '1-building-application') {
+                                docker.withRegistry(DOCKER_REGISTRY, 'docker-creds') {
+                                    backendImage.push()
+                                    backendImage.push('v1')
+                                }
                             }
                         }
                     }
@@ -54,21 +66,30 @@ pipeline {
 
         stage('Frontend Tests & Build') {
             steps {
-                dir('frontend') {
-                    script {
-                        // Install dependencies and run tests
-                        sh 'npm install'           
-                        // Build React application
-                        sh 'npm run build'
+                // Step 1: Use the Node.js container for frontend build tasks
+                container('nodejs') {
+                    dir('frontend') {
+                        script {
+                            // Install Node.js dependencies and build the React app
+                            sh 'npm install'
+                            sh 'npm run build'
+                        }
+                    }
+                }
 
-                        // Build frontend Docker image
-                        def frontendImage = docker.build("${FRONTEND_IMAGE}:${BUILD_NUMBER}", "--no-cache .")
-                        
-                        // Tag and push if on main branch
-                        if (env.BRANCH_NAME == '1-building-application') {
-                            docker.withRegistry(DOCKER_REGISTRY, 'docker-creds') {
-                                frontendImage.push()
-                                frontendImage.push('v1')
+                // Step 2: Use the dind container for Docker build and push tasks
+                container('dind') {
+                    dir('frontend') {
+                        script {
+                            // Build the frontend Docker image
+                            def frontendImage = docker.build("${FRONTEND_IMAGE}:${BUILD_NUMBER}", "--no-cache .")
+
+                            // Tag and push the image if on the correct branch
+                            if (env.BRANCH_NAME == '1-building-application') {
+                                docker.withRegistry(DOCKER_REGISTRY, 'docker-creds') {
+                                    frontendImage.push()
+                                    frontendImage.push('v1')
+                                }
                             }
                         }
                     }
@@ -81,25 +102,27 @@ pipeline {
                 branch '1-building-application'
             }
             steps {
-                dir(HELM_CHART_DIR) {
-                    script {
-                        // Update chart version and app version
-                        sh """
-                            yq eval '.version = "${HELM_CHART_VERSION}"' -i Chart.yaml
-                            yq eval '.appVersion = "${BUILD_NUMBER}"' -i Chart.yaml
-                            
-                            # Update image tags in values.yaml
-                            yq eval '.backend.image.tag = "${BUILD_NUMBER}"' -i values.yaml
-                            yq eval '.frontend.image.tag = "${BUILD_NUMBER}"' -i values.yaml
-                        """
+                container('dind') {
+                    dir(HELM_CHART_DIR) {
+                        script {
+                            // Update chart version and app version
+                            sh """
+                                yq eval '.version = "${HELM_CHART_VERSION}"' -i Chart.yaml
+                                yq eval '.appVersion = "${BUILD_NUMBER}"' -i Chart.yaml
+                                
+                                # Update image tags in values.yaml
+                                yq eval '.backend.image.tag = "${BUILD_NUMBER}"' -i values.yaml
+                                yq eval '.frontend.image.tag = "${BUILD_NUMBER}"' -i values.yaml
+                            """
 
-                        // Package helm chart
-                        sh "helm package ."
-                        
-                        // Optional: Push to chart repository (example using OCI registry)
-                        sh """
-                            helm push \$(ls *.tgz) oci://registry-1.docker.io/danbit2024
-                        """
+                            // Package helm chart
+                            sh "helm package ."
+                            
+                            // Optional: Push to chart repository (example using OCI registry)
+                            sh """
+                                helm push \$(ls *.tgz) oci://registry-1.docker.io/danbit2024
+                            """
+                        }
                     }
                 }
             }
