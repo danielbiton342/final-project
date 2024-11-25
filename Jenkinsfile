@@ -17,6 +17,7 @@ pipeline {
         EMAIL_RECIPIENT = credentials('email-recipient')
         HELM_CHART_DIR = 'helm-reactapp'
         HELM_CHART_VERSION = '0.1.0'
+        DEPLOY_BRANCH = '1-building-application'
     }
 
     stages {
@@ -24,7 +25,7 @@ pipeline {
             steps {
                 checkout([
                     $class: 'GitSCM',
-                    branches: [[name: '*/1-building-application']],
+                    branches: [[name: "*/${env.DEPLOY_BRANCH}"]],
                     userRemoteConfigs: [[url: 'https://gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git']]
                 ])
             }
@@ -32,30 +33,32 @@ pipeline {
 
         stage('Backend Tests & Build') {
             steps {
-                // Use the python-test container to run tests
                 container('python-test') {
                     dir('backend') {
                         script {
-                            // Run Python tests
-                            sh 'pip install pylint'
-                            sh 'pylint app.py'
-                            sh 'python -m pytest test_app.py'
+                            try {
+                                sh '''
+                                    pip install -r requirements.txt
+                                    pip install pylint pytest
+                                    pylint app.py
+                                    python -m pytest test_app.py
+                                '''
+                            } catch (Exception e) {
+                                error "Backend tests failed: ${e.message}"
+                            }
                         }
                     }
                 }
 
-                // Use the dind container for Docker build and push
                 container('dind') {
                     dir('backend') {
                         script {
-                            // Build backend Docker image
                             def backendImage = docker.build("${BACKEND_IMAGE}:${BUILD_NUMBER}", "--no-cache .")
                             
-                            // Push image if on the specific branch
-                            if (env.BRANCH_NAME == '1-building-application') {
+                            if (env.BRANCH_NAME == env.DEPLOY_BRANCH) {
                                 docker.withRegistry(DOCKER_REGISTRY, 'docker-creds') {
                                     backendImage.push()
-                                    backendImage.push('v1')
+                                    backendImage.push('latest')
                                 }
                             }
                         }
@@ -66,29 +69,31 @@ pipeline {
 
         stage('Frontend Tests & Build') {
             steps {
-                // Step 1: Use the Node.js container for frontend build tasks
                 container('nodejs') {
                     dir('frontend') {
                         script {
-                            // Install Node.js dependencies and build the React app
-                            sh 'npm install'
-                            sh 'npm run build'
+                            try {
+                                sh '''
+                                    npm ci
+                                    npm run test -- --watchAll=false
+                                    npm run build
+                                '''
+                            } catch (Exception e) {
+                                error "Frontend build failed: ${e.message}"
+                            }
                         }
                     }
                 }
 
-                // Step 2: Use the dind container for Docker build and push tasks
                 container('dind') {
                     dir('frontend') {
                         script {
-                            // Build the frontend Docker image
                             def frontendImage = docker.build("${FRONTEND_IMAGE}:${BUILD_NUMBER}", "--no-cache .")
 
-                            // Tag and push the image if on the correct branch
-                            if (env.BRANCH_NAME == '1-building-application') {
+                            if (env.BRANCH_NAME == env.DEPLOY_BRANCH) {
                                 docker.withRegistry(DOCKER_REGISTRY, 'docker-creds') {
                                     frontendImage.push()
-                                    frontendImage.push('v1')
+                                    frontendImage.push('latest')
                                 }
                             }
                         }
@@ -99,29 +104,27 @@ pipeline {
 
         stage('Helm Chart Processing') {
             when {
-                branch '1-building-application'
+                expression { env.BRANCH_NAME == env.DEPLOY_BRANCH }
             }
             steps {
                 container('dind') {
                     dir(HELM_CHART_DIR) {
                         script {
-                            // Update chart version and app version
-                            sh """
-                                yq eval '.version = "${HELM_CHART_VERSION}"' -i Chart.yaml
-                                yq eval '.appVersion = "${BUILD_NUMBER}"' -i Chart.yaml
-                                
-                                # Update image tags in values.yaml
-                                yq eval '.backend.image.tag = "${BUILD_NUMBER}"' -i values.yaml
-                                yq eval '.frontend.image.tag = "${BUILD_NUMBER}"' -i values.yaml
-                            """
-
-                            // Package helm chart
-                            sh "helm package ."
-                            
-                            // Optional: Push to chart repository (example using OCI registry)
-                            sh """
-                                helm push \$(ls *.tgz) oci://registry-1.docker.io/danbit2024
-                            """
+                            try {
+                                sh """
+                                    yq eval '.version = "${HELM_CHART_VERSION}"' -i Chart.yaml
+                                    yq eval '.appVersion = "${BUILD_NUMBER}"' -i Chart.yaml
+                                    
+                                    yq eval '.backend.image.tag = "${BUILD_NUMBER}"' -i values.yaml
+                                    yq eval '.frontend.image.tag = "${BUILD_NUMBER}"' -i values.yaml
+                                    
+                                    helm lint .
+                                    helm package .
+                                    helm push \$(ls *.tgz) oci://registry-1.docker.io/danbit2024
+                                """
+                            } catch (Exception e) {
+                                error "Helm chart processing failed: ${e.message}"
+                            }
                         }
                     }
                 }
@@ -129,25 +132,24 @@ pipeline {
         }
     }
 
-//    post {
-//        failure {
-//            emailext (
-//                subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
-//                body: """
-//                    Pipeline failure in ${env.JOB_NAME}
-//                    Build Number: ${env.BUILD_NUMBER}
-//                    Build URL: ${env.BUILD_URL}
-//                """,
-//                recipientProviders: [[$class: 'DevelopersRecipientProvider']],
-//                to: "${env.EMAIL_RECIPIENT}"
-//            )
-//        }
-//        success {
-//            echo "Pipeline completed successfully!"
-//        }
-//        always {
-//            // Replace cleanWs with deleteDir
-//            deleteDir()
-//        }
-//    }
+    post {
+        failure {
+            emailext (
+                subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
+                body: """
+                    Pipeline failure in ${env.JOB_NAME}
+                    Build Number: ${env.BUILD_NUMBER}
+                    Build URL: ${env.BUILD_URL}
+                """,
+                recipientProviders: [[$class: 'DevelopersRecipientProvider']],
+                to: "${env.EMAIL_RECIPIENT}"
+            )
+        }
+        success {
+            echo "Pipeline completed successfully!"
+        }
+        always {
+            deleteDir()
+        }
+    }
 }
