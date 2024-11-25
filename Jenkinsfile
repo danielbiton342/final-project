@@ -13,7 +13,7 @@ pipeline {
         FRONTEND_IMAGE = 'danbit2024/frontend-app'
         DOCKER_REGISTRY = 'https://registry.hub.docker.com'
         GITLAB_API_URL = 'https://gitlab.com/api/v4'
-        GITLAB_TOKEN = credentials('gitlab-credentials')
+        GITLAB_TOKEN = credentials('gitlab-pat')
         EMAIL_RECIPIENT = credentials('email-recipient')
         HELM_CHART_DIR = 'helm-reactapp'
         HELM_CHART_VERSION = '0.1.0'
