@@ -1,27 +1,10 @@
+import os
 from flask import Flask, request, jsonify
 from flask_pymongo import PyMongo
-from flask_cors import CORS
 from bson import ObjectId
-import os
+
 
 app = Flask(__name__)
-
-
-# Configure CORS properly
-# CORS(
-#    app,
-#    resources={
-#        r"/*": {
-#            "origins": [
-#                "http://localhost:3000",  # For local development
-#                f"http://localhost:30000",  # For NodePort local access
-#                f"http://{os.getenv('NODE_IP', '*')}:30000",  # For NodePort production access
-#            ],
-#            "methods": ["GET", "POST", "PUT", "DELETE"],
-#            "allow_headers": ["Content-Type"],
-#        }
-#    },
-# )
 
 # Configure MongoDB URI
 mongo_uri = os.environ.get(

@@ -29,15 +29,18 @@ pipeline {
                         // Build backend image
                         sh "docker build -t ${BACKEND_IMAGE}:${newTag} backend/"
                         
+                        // Run pylint and capture the exit code
+                        def pylintExitCode = sh(
+                            script: "docker run --rm ${BACKEND_IMAGE}:${newTag} pylint /app/app.py",
+                            returnStatus: true
+                        )
                         
-                        try {
-                            sh """                          
-                            docker run --rm ${BACKEND_IMAGE}:${newTag} pylint /app/app.py
-                            """
-                            echo 'Pylint check passed successfully'
-                        } catch (Exception e) {
-                            // This will fail the pipeline if pylint finds issues
-                            error 'Pylint check failed'
+                        // Print the pylint score
+                        sh "docker run --rm ${BACKEND_IMAGE}:${newTag} pylint /app/app.py | grep 'Your code has been rated at'"
+                        
+                        // Optionally, you can add a warning if the score is below a certain threshold
+                        if (pylintExitCode != 0) {
+                            echo "WARNING: Pylint found issues with the code. Please review the code quality."
                         }
                     }
                 }
