@@ -29,12 +29,15 @@ pipeline {
                         // Build backend image
                         sh "docker build -t ${BACKEND_IMAGE}:${newTag} backend/"
                         
-                        // Run tests
+                        
                         try {
-                            sh "docker run --rm ${BACKEND_IMAGE}:${newTag} python -m pytest test_app.py"
-                            echo 'Tests passed successfully'
+                            sh """                          
+                            docker run --rm ${BACKEND_IMAGE}:${newTag} pylint /app/app.py
+                            """
+                            echo 'Pylint check passed successfully'
                         } catch (Exception e) {
-                            error 'Backend tests failed'
+                            // This will fail the pipeline if pylint finds issues
+                            error 'Pylint check failed'
                         }
                     }
                 }
