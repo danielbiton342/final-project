@@ -152,7 +152,7 @@ pipeline {
     post {
         success {
             script {
-                // Use withCredentials to access the GitLab token
+                // Merge request creation logic
                 withCredentials([string(credentialsId: 'gitlab-token', variable: 'GITLAB_TOKEN')]) {
                     def projectId = '64685307'
                     def sourceBranch = '1-building-application'
@@ -166,14 +166,11 @@ pipeline {
                     """
                 }
             }
+            echo 'Build completed successfully!'
         }
-
+    
         failure {
             echo 'Build failed. Check the logs for more information.'
-        }
-
-        success {
-            echo 'Build completed successfully!'
         }
     }
 }
