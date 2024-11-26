@@ -1,155 +1,70 @@
 pipeline {
     agent {
         kubernetes {
-            label 'reactapp-agent'
-            idleMinutes 5
+            label 'dind-agent'
             yamlFile 'jenkins-agent.yaml'
-            defaultContainer 'dind'
-        }            
+        }
     }
-
     environment {
+        VERSION = "${env.BUILD_NUMBER}"
         BACKEND_IMAGE = 'danbit2024/backend-app'
         FRONTEND_IMAGE = 'danbit2024/frontend-app'
-        DOCKER_REGISTRY = 'https://registry.hub.docker.com'
-        GITLAB_API_URL = 'https://gitlab.com/api/v4'
-        GITLAB_TOKEN = credentials('gitlab-pat')
-        EMAIL_RECIPIENT = credentials('email-recipient')
-        HELM_CHART_DIR = 'helm-reactapp'
-        HELM_CHART_VERSION = '0.1.0'
-        DEPLOY_BRANCH = '1-building-application'
-    }
 
+
+    }
     stages {
-        stage('Checkout') {
-            steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: "*/${env.DEPLOY_BRANCH}"]],
-                    userRemoteConfigs: [[url: 'https://gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git']]
-                ])
-            }
-        }
-
-        stage('Backend Tests & Build') {
-            steps {
-                container('python-test') {
-                    dir('backend') {
-                        script {
-                            try {
-                                sh '''
-                                    pip install -r requirements.txt
-                                    pip install pylint pytest
-                                    pylint app.py
-                                    python -m pytest test_app.py
-                                '''
-                            } catch (Exception e) {
-                                error "Backend tests failed: ${e.message}"
-                            }
-                        }
-                    }
-                }
-
-                container('dind') {
-                    dir('backend') {
-                        script {
-                            def backendImage = docker.build("${BACKEND_IMAGE}:${BUILD_NUMBER}", "--no-cache .")
-                            
-                            if (env.BRANCH_NAME == env.DEPLOY_BRANCH) {
-                                docker.withRegistry(DOCKER_REGISTRY, 'docker-creds') {
-                                    backendImage.push()
-                                    backendImage.push('latest')
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Frontend Tests & Build') {
-            steps {
-                container('nodejs') {
-                    dir('frontend') {
-                        script {
-                            try {
-                                sh '''
-                                    npm ci
-                                    npm run test -- --watchAll=false
-                                    npm run build
-                                '''
-                            } catch (Exception e) {
-                                error "Frontend build failed: ${e.message}"
-                            }
-                        }
-                    }
-                }
-
-                container('dind') {
-                    dir('frontend') {
-                        script {
-                            def frontendImage = docker.build("${FRONTEND_IMAGE}:${BUILD_NUMBER}", "--no-cache .")
-
-                            if (env.BRANCH_NAME == env.DEPLOY_BRANCH) {
-                                docker.withRegistry(DOCKER_REGISTRY, 'docker-creds') {
-                                    frontendImage.push()
-                                    frontendImage.push('latest')
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Helm Chart Processing') {
-            when {
-                expression { env.BRANCH_NAME == env.DEPLOY_BRANCH }
-            }
+        stage('Run Tests and Build backend Image') {
             steps {
                 container('dind') {
-                    dir(HELM_CHART_DIR) {
-                        script {
-                            try {
-                                sh """
-                                    yq eval '.version = "${HELM_CHART_VERSION}"' -i Chart.yaml
-                                    yq eval '.appVersion = "${BUILD_NUMBER}"' -i Chart.yaml
-                                    
-                                    yq eval '.backend.image.tag = "${BUILD_NUMBER}"' -i values.yaml
-                                    yq eval '.frontend.image.tag = "${BUILD_NUMBER}"' -i values.yaml
-                                    
-                                    helm lint .
-                                    helm package .
-                                    helm push \$(ls *.tgz) oci://registry-1.docker.io/danbit2024
-                                """
-                            } catch (Exception e) {
-                                error "Helm chart processing failed: ${e.message}"
-                            }
+                    script {
+                        def newTag = "${VERSION}"
+                        sh 'dockerd &'
+                        sh 'sleep 5'
+                        sh "docker build -t ${BACKEND_IMAGE}:${newTag} ."
+                        sh "docker run ${BACKEND_IMAGE}:${newTag} test_app.py"
+                        echo 'passed test'
+                    }
+                }
+            }
+        }
+        stage('Push BACKEND Image') {
+            steps {
+                container('dind') {
+                    script {
+                        def newTag = "${VERSION}"
+                        withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh """
+                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                            docker push ${BACKEND_IMAGE}:${newTag}
+                            """
                         }
                     }
                 }
             }
         }
-    }
-
-    post {
-        failure {
-            emailext (
-                subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
-                body: """
-                    Pipeline failure in ${env.JOB_NAME}
-                    Build Number: ${env.BUILD_NUMBER}
-                    Build URL: ${env.BUILD_URL}
-                """,
-                recipientProviders: [[$class: 'DevelopersRecipientProvider']],
-                to: "${env.EMAIL_RECIPIENT}"
-            )
+        stage('Update Helm Values and Commit Changes') {
+            steps {
+                script {
+                    def newTag = "${VERSION}"
+                    sh "sed -i 's/tag: .*/tag: \"${newTag}\"/' helm-reactapp/values.yaml"
+                }
+            }
         }
-        success {
-            echo "Pipeline completed successfully!"
-        }
-        always {
-            deleteDir()
+        stage('Build and push helm chart') {
+            steps {
+                container('dind') {
+                    script {
+                        def newTag = "${VERSION}"
+                        withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh """
+                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                            helm package helm-reactapp
+                            helm push helm-reactapp-0.5.0.tgz oci://registry-1.docker.io/danbit2024
+                            """
+                        }
+                    }
+                }
+            }
         }
     }
 }
