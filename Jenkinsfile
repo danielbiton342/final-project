@@ -157,18 +157,25 @@ pipeline {
                     def projectId = '64685307'
                     def sourceBranch = '1-building-application'
                     def targetBranch = 'main'
-                    
+
                     // Create a merge request using curl and GitLab API
                     sh """
-                    curl --request POST --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
-                         --data "source_branch=${sourceBranch}&target_branch=${targetBranch}&title=Merge ${sourceBranch} into ${targetBranch}" \
+                    curl --request POST \
+                         --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+                         --header "Content-Type: application/json" \
+                         --data '{
+                             "source_branch": "${sourceBranch}",
+                             "target_branch": "${targetBranch}",
+                             "title": "Merge ${sourceBranch} into ${targetBranch} invoked by jenkins CI",
+                             "description": "Merge request created automatically by Jenkins CI pipeline."
+                         }' \
                          "https://gitlab.com/api/v4/projects/${projectId}/merge_requests"
                     """
                 }
             }
             echo 'Build completed successfully!'
         }
-    
+
         failure {
             echo 'Build failed. Check the logs for more information.'
         }
