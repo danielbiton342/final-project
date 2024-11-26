@@ -25,19 +25,19 @@ pipeline {
                         def newTag = "${VERSION}"
                         sh 'dockerd &'
                         sh 'sleep 5'
-                        
+
                         // Build backend image
                         sh "docker build -t ${BACKEND_IMAGE}:${newTag} backend/"
-                        
+
                         // Run pylint and capture the exit code
                         def pylintExitCode = sh(
                             script: "docker run --rm ${BACKEND_IMAGE}:${newTag} pylint /app/app.py",
                             returnStatus: true
                         )
-                        
+
                         // Print the pylint score
                         sh "docker run --rm ${BACKEND_IMAGE}:${newTag} pylint /app/app.py | grep 'Your code has been rated at'"
-                        
+
                         // Optionally, you can add a warning if the score is below a certain threshold
                         if (pylintExitCode != 0) {
                             echo "WARNING: Pylint found issues with the code. Please review the code quality."
@@ -66,6 +66,40 @@ pipeline {
             }
         }
         
+        stage('Run Tests and Build Frontend Image') {
+            steps{
+                container('dind') {
+                    script {
+                        def newTag = "${VERSION}"
+                        sh 'dockerd &'
+                        sh 'sleep 5'
+
+                        // Build frontend image
+                        sh "docker build -t ${FRONTEND_IMAGE}:${newTag} frontend/"
+
+                        script: "docker run --rm ${FRONTEND_IMAGE}:${newTag}"
+                    }
+                }
+            }
+        }
+        stage('Push Frontend Image') {
+            when {
+                expression { currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
+            }
+            steps {
+                container('dind') {
+                    script {
+                        def newTag = "${VERSION}"
+                        withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh """
+                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                            docker push ${FRONT_IMAGE}:${newTag}
+                            """
+                        }
+                    }
+                }
+            }
+        }
         stage('Update Helm Values and Commit Changes') {
             when {
                 expression { currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
