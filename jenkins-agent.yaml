@@ -1,45 +1,15 @@
 apiVersion: v1
 kind: Pod
-metadata:
-  name: jenkins-agent-pod
-  labels:
-    app: reactapp-agent
 spec:
   containers:
-    - name: dind
-      image: drpsychick/dind-buildx-helm
-      imagePullPolicy: Always
-      securityContext:
-        privileged: true
-      volumeMounts:
-        - mountPath: /var/run
-          name: docker-sock
-
-    - name: nodejs
-      image: node:16
-      command:
-        - sleep
-      args:
-        - infinity
-      imagePullPolicy: Always
-      securityContext:
-        privileged: false
-
-    - name: python-test
-      image: python:3.9-slim
-      command:
-        - sleep
-      args:
-        - infinity
-      imagePullPolicy: Always
-      securityContext:
-        privileged: false
-      volumeMounts:
-        - name: workspace-volume
-          mountPath: /home/jenkins/agent
-
+  - name: dind
+    image: drpsychick/dind-buildx-helm
+    alwaysPull: true
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - mountPath: /var/run
+      name: docker-sock
   volumes:
-    - name: docker-sock
-      emptyDir: {}
-    - name: workspace-volume
-      emptyDir: {}
+  - name: docker-sock
+    emptyDir: {}
