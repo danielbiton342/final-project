@@ -12,9 +12,23 @@ pipeline {
         FRONTEND_IMAGE = 'danbit2024/frontend-app'
     }
     stages {
-        stage('Checkout') {
+        stage('Checkout code') {
             steps {
-                checkout scm
+                script {
+                    sh "git config --global --add safe.directory ${env.WORKSPACE}"
+                    checkout scm
+                    def commitMessage = sh(
+                        script: "git log -1 --pretty=%B",
+                        returnStdout: true
+                    ).trim()
+
+                    if (commitMessage.contains("[skip-ci]")) {
+                        echo "Skipping build due to commit message: ${commitMessage}"
+                        error("Build aborted due to [skip-ci] in commit message.")
+                    }
+                    
+                    echo "Proceeding with build. Commit message: ${commitMessage}"
+                }
             }
         }
         
@@ -136,9 +150,28 @@ pipeline {
     }
     
     post {
+        success {
+            script {
+                // Use withCredentials to access the GitLab token
+                withCredentials([string(credentialsId: 'gitlab-token', variable: 'GITLAB_TOKEN')]) {
+                    def projectId = '64685307'
+                    def sourceBranch = '1-building-application'
+                    def targetBranch = 'main'
+                    
+                    // Create a merge request using curl and GitLab API
+                    sh """
+                    curl --request POST --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+                         --data "source_branch=${sourceBranch}&target_branch=${targetBranch}&title=Merge ${sourceBranch} into ${targetBranch}" \
+                         "https://gitlab.com/api/v4/projects/${projectId}/merge_requests"
+                    """
+                }
+            }
+        }
+
         failure {
             echo 'Build failed. Check the logs for more information.'
         }
+
         success {
             echo 'Build completed successfully!'
         }
