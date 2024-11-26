@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-reactapp
+  namespace: argocd
+spec:
+  project: reactapp
+  source:
+    repoURL: "https://gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git"
+    targetRevision: HEAD
+    path: ./helm-reactapp
+  destination:
+    server: "https://kubernetes.docker.internal:6443" # For Docker Desktop
+    namespace: deployment
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true #override any changes made manually using kubectl CLI
