@@ -145,7 +145,7 @@ pipeline {
                         sh """
                         git config --global user.name "jenkins-ci"
                         git config --global user.email "jenkins@ci.com"
-                        git remote set-url origin https://oauth2:${GITLAB_TOKEN}@gitlab.com/your-username/your-repo.git
+                       git remote set-url origin https://oauth2:${GITLAB_TOKEN}@gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git
                         git add ${VALUES_FILE}
                         git commit -m "Update helm chart tag to ${BUILD_NUMBER}"
                         git push origin 1-building-application
@@ -154,7 +154,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Build and push helm chart') {
             when {
                 expression { currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
