@@ -20,6 +20,9 @@ spec:
     repoURL: https://gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git
     targetRevision: HEAD
     path: helm-reactapp/
+    helm:
+      valueFiles:
+        - helm-reactapp/values.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: deployment
