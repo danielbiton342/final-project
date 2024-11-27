@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: argocd-reactapp
+  name: react-app-argocd
   namespace: argocd
   annotations:
     # List the images to be tracked
@@ -17,15 +17,19 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: "https://gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git"
+    repoURL: https://gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git
     targetRevision: HEAD
-    path: ./helm-reactapp
+    path: helm-reactapp/
   destination:
+<<<<<<< HEAD
     server: https://kubernetes.default.svc # For Docker Desktop
+=======
+    server: https://kubernetes.default.svc
+>>>>>>> main
     namespace: deployment
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
     automated:
+      selfHeal: true
       prune: true
-      selfHeal: true #override any changes made manually using kubectl CLI
