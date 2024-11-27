@@ -19,12 +19,7 @@ spec:
   sources:
     - repoURL: "registry-1.docker.io/danbit2024"
       chart: helm-reactapp
-      targetRevision: 0.1.26
-      helm:
-        valueFiles:
-          - values.yaml
-        version: v3
-      ref: dockerhub
+      targetRevision: "*"
   destination:
     namespace: deployment
     server: "https://kubernetes.default.svc"
