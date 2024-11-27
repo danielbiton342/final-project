@@ -17,9 +17,9 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: "registry-1.docker.io/danbit2024"
-      chart: helm-reactapp
-      targetRevision: "*"
+    - repoURL: "https://gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git"
+      targetRevision: HEAD
+      path: ./helm-reactapp
   destination:
     namespace: deployment
     server: "https://kubernetes.default.svc"

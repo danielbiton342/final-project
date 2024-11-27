@@ -17,6 +17,11 @@ pipeline {
         stage('Checkout code') {
             steps {
                 script {
+                    checkout scm: [
+                        $class: 'GitSCM', 
+                        branches: [[name: '*/1-building-application']], 
+                        userRemoteConfigs: scm.userRemoteConfigs
+                    ]
                     sh "git config --global --add safe.directory ${env.WORKSPACE}"
                     checkout scm
                     def commitMessage = sh(
@@ -129,6 +134,29 @@ pipeline {
             }
         }
         
+        stage('Commit and Push Updated Values') {
+            when {
+                expression { currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
+            }
+            steps {
+                script {
+                    // Use the GitLab token for authentication
+                    withCredentials([string(credentialsId: 'gitlab-token', variable: 'GITLAB_TOKEN')]) {                      
+                        sh """
+                        git config --global user.name "jenkins-ci"
+                        git config --global user.email "jenkins@ci.com"
+                        git remote set-url origin https://oauth2:${GITLAB_TOKEN}@gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git
+                        git fetch origin 1-building-application
+                        git checkout 1-building-application
+                        git add ${VALUES_FILE}
+                        git commit -m "Update helm chart tag to ${BUILD_NUMBER}"
+                        git push origin 1-building-application
+                        """
+                    }
+                }
+            }
+        }
+
         stage('Build and push helm chart') {
             when {
                 expression { currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
@@ -156,13 +184,12 @@ pipeline {
     post {
         success {
             script {
-                // Merge request creation logic
+               
                 withCredentials([string(credentialsId: 'gitlab-token', variable: 'GITLAB_TOKEN')]) {
                     def projectId = '64685307'
                     def sourceBranch = '1-building-application'
                     def targetBranch = 'main'
 
-                    // Create a merge request using curl and GitLab API
                     sh """
                     curl --request POST \
                          --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
@@ -181,6 +208,15 @@ pipeline {
         }
 
         failure {
+            emailext subject: '$DEFAULT_SUBJECT', 
+                     body: '$DEFAULT_CONTENT', 
+                     recipientProviders: [ 
+                         [$class: 'CulpritsRecipientProvider'], 
+                         [$class: 'DevelopersRecipientProvider'], 
+                         [$class: 'RequesterRecipientProvider'] 
+                     ], 
+                     replyTo: '$DEFAULT_REPLYTO', 
+                     to: '$DEFAULT_RECIPIENTS'
             echo 'Build failed. Check the logs for more information.'
         }
     }
