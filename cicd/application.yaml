@@ -3,6 +3,17 @@ kind: Application
 metadata:
   name: react-app-argocd
   namespace: argocd
+  annotations:
+    # List the images to be tracked
+    argocd-image-updater.argoproj.io/image-list: "danbit2024/frontend:latest,danbit2024/backend:latest"
+    # Explicitly map each image to the corresponding Helm values key
+    argocd-image-updater.argoproj.io/frontend.image: "danbit2024/frontend"
+    argocd-image-updater.argoproj.io/backend.image: "danbit2024/backend"
+    # Specify where the updated image tags should be written
+    argocd-image-updater.argoproj.io/frontend.image.tag: "frontend.image.tag"
+    argocd-image-updater.argoproj.io/backend.image.tag: "backend.image.tag"
+    # Set write-back method (git in this case)
+    argocd-image-updater.argoproj.io/write-back-method: "git"
 spec:
   project: default
   source:
