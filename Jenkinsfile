@@ -121,7 +121,9 @@ pipeline {
             steps {
                 script {
                     def newTag = "${VERSION}"
-                    sh "sed -i 's/tag: .*/tag: \"${newTag}\"/' helm-reactapp/values.yaml"
+                        sh "sed -i 's/backend.image.tag: .*/backend.image.tag: \"${newTag}\"/' helm-reactapp/values.yaml"
+                        sh "sed -i 's/frontend.image.tag: .*/frontend.image.tag: \"${newTag}\"/' helm-reactapp/values.yaml"
+
                 }
             }
         }
