@@ -3,14 +3,25 @@ kind: Application
 metadata:
   name: argocd-reactapp
   namespace: argocd
+  annotations:
+    # List the images to be tracked
+    argocd-image-updater.argoproj.io/image-list: "danbit2024/frontend:latest,danbit2024/backend:latest"
+    # Explicitly map each image to the corresponding Helm values key
+    argocd-image-updater.argoproj.io/frontend.image: "danbit2024/frontend"
+    argocd-image-updater.argoproj.io/backend.image: "danbit2024/backend"
+    # Specify where the updated image tags should be written
+    argocd-image-updater.argoproj.io/frontend.image.tag: "frontend.image.tag"
+    argocd-image-updater.argoproj.io/backend.image.tag: "backend.image.tag"
+    # Set write-back method (git in this case)
+    argocd-image-updater.argoproj.io/write-back-method: "git"
 spec:
-  project: reactapp
+  project: default
   source:
     repoURL: "https://gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git"
     targetRevision: HEAD
     path: ./helm-reactapp
   destination:
-    server: "https://kubernetes.docker.internal:6443" # For Docker Desktop
+    server: https://kubernetes.default.svc # For Docker Desktop
     namespace: deployment
   syncPolicy:
     syncOptions:

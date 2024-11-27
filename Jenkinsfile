@@ -114,7 +114,7 @@ pipeline {
                 }
             }
         }
-        stage('Update Helm Values and Commit Changes') {
+        stage('Update Helm Values') {
             when {
                 expression { currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
             }

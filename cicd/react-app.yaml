@@ -12,7 +12,7 @@ spec:
 
   # Define allowed cluster destinations (namespace and cluster scope)
   destinations:
-    - namespace: reactapp-namespace
+    - namespace: deployment
       server: "https://kubernetes.docker.internal:6443" # Docker Desktop's Kubernetes server
 
   # Enforce restrictions on cluster resources
