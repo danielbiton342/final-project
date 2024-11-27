@@ -5,7 +5,7 @@ metadata:
   namespace: argocd
   annotations:
     # List the images to be tracked
-    argocd-image-updater.argoproj.io/image-list: "danbit2024/frontend:latest,danbit2024/backend:latest"
+    argocd-image-updater.argoproj.io/image-list: "danbit2024/frontend,danbit2024/backend"
     # Explicitly map each image to the corresponding Helm values key
     argocd-image-updater.argoproj.io/frontend.image: "danbit2024/frontend"
     argocd-image-updater.argoproj.io/backend.image: "danbit2024/backend"
