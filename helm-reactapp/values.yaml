@@ -3,7 +3,7 @@ frontend:
   image:
     repository: danbit2024/frontend-app
     pullPolicy: Always
-    tag: 44
+    tag: 46
   service:
     type: nodePort
     port: 80
@@ -14,7 +14,7 @@ backend:
   image:
     repository: danbit2024/backend-app
     pullPolicy: Always
-    tag: 44
+    tag: 46
   service:
     type: clusterIP
     port: 5000
