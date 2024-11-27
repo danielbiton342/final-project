@@ -21,11 +21,7 @@ spec:
     targetRevision: HEAD
     path: helm-reactapp/
   destination:
-<<<<<<< HEAD
-    server: https://kubernetes.default.svc # For Docker Desktop
-=======
     server: https://kubernetes.default.svc
->>>>>>> main
     namespace: deployment
   syncPolicy:
     syncOptions:
