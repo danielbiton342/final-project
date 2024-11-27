@@ -16,16 +16,26 @@ metadata:
     argocd-image-updater.argoproj.io/write-back-method: "git"
 spec:
   project: default
-  source:
-    repoURL: https://gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git
-    targetRevision: HEAD
-    path: helm-reactapp/
+  sources:
+    - repoURL: "registry-1.docker.io/danbit2024"
+      chart: helm-reactapp
+      targetRevision: HEAD
+      helm:
+        valueFiles:
+          - $values/helm-reactapp/values.yaml
+        version: v3
+    - repoURL: "https://gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git"
+      targetRevision: HEAD
+      path: helm-reactapp
+      helm:
+        valueFiles:
+          - helm-reactapp/values.yaml
   destination:
-    server: https://kubernetes.default.svc
-    namespace: deployment
+    namespace: app
+    server: "https://kubernetes.default.svc"
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
-    automated:
-      selfHeal: true
-      prune: true

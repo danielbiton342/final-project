@@ -10,6 +10,8 @@ pipeline {
         HELM_CHART_VERSION = "0.1.${env.BUILD_NUMBER}"
         BACKEND_IMAGE = 'danbit2024/backend-app'
         FRONTEND_IMAGE = 'danbit2024/frontend-app'
+        VALUES_FILE = "helm-reactapp/values.yaml"
+        APPLICATION_FILE = "cicd/application.yaml"
     }
     stages {
         stage('Checkout code') {
@@ -120,9 +122,8 @@ pipeline {
             }
             steps {
                 script {
-                    def newTag = "${VERSION}"
-                        sh "sed -i 's/backend.image.tag: .*/backend.image.tag: \"${newTag}\"/' helm-reactapp/values.yaml"
-                        sh "sed -i 's/frontend.image.tag: .*/frontend.image.tag: \"${newTag}\"/' helm-reactapp/values.yaml"
+                    sh 'sed -i "s|tag: .*|tag: ${BUILD_NUMBER}|" "${VALUES_FILE}"'
+                    sh  'echo "Updated tag to ${BUILD_NUMBER}"'
 
                 }
             }
@@ -136,7 +137,6 @@ pipeline {
                 container('dind') {
                     script {
                         sh """
-                   
                         sed -i "s/version: .*/version: ${HELM_CHART_VERSION}/" helm-reactapp/Chart.yaml
 
                     
@@ -144,6 +144,8 @@ pipeline {
 
                        
                         helm push helm-reactapp-${HELM_CHART_VERSION}.tgz oci://registry-1.docker.io/danbit2024
+
+                        sed -i "s|targetRevision: .*|targetRevision: ${BUILD_NUMBER}|" "${APPLICATION_FILE}"
                         """
                     }
                 }
