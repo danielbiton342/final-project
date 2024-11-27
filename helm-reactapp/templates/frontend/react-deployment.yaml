@@ -2,6 +2,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend-deployment
+  annotations:
+    prometheus.io/scrape: "true" # Enable scraping
+    prometheus.io/port: "80" # Port where metrics are exposed
+    prometheus.io/path: "/metrics"
 spec:
   replicas: {{ .Values.frontend.replicaCount }}
   selector:
