@@ -145,7 +145,9 @@ pipeline {
                         sh """
                         git config --global user.name "jenkins-ci"
                         git config --global user.email "jenkins@ci.com"
-                       git remote set-url origin https://oauth2:${GITLAB_TOKEN}@gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git
+                        git remote set-url origin https://oauth2:${GITLAB_TOKEN}@gitlab.com/sela-tracks/1109/students/danielbit/final-project/application/react-app.git
+                        git fetch origin 1-building-application
+                        git checkout 1-building-application
                         git add ${VALUES_FILE}
                         git commit -m "Update helm chart tag to ${BUILD_NUMBER}"
                         git push origin 1-building-application
